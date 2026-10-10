@@ -261,22 +261,23 @@
     if (!c) return;
 
     const remarksStr = `Admin status update: ${newStatus}`;
-    let txMeta = {};
 
     try {
-      if (window.BlockchainService) {
-        const res = await window.BlockchainService.updateStatus(
-          currentSelection,
-          newStatus,
-          c.description || newStatus,
-          remarksStr
-        );
-        if (res && res.txHash) {
-          txMeta = { txHash: res.txHash, recordHash: res.recordHash, remarks: remarksStr };
-        }
+      if (!window.BlockchainService) {
+        throw new Error('Blockchain service unavailable.');
       }
 
-      // Update local storage DB only when on-chain update succeeds or in offline mode
+      const res = await window.BlockchainService.updateStatus(
+        currentSelection,
+        newStatus,
+        c.description || newStatus,
+        remarksStr
+      );
+      if (!res?.success || !res.txHash) {
+        throw new Error('On-chain status update did not complete.');
+      }
+
+      const txMeta = { txHash: res.txHash, recordHash: res.recordHash, remarks: remarksStr };
       const success = CP.updateComplaintStatus(
         currentSelection,
         newStatus,

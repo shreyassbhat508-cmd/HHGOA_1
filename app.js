@@ -118,6 +118,7 @@ const CP = (() => {
     };
     if (meta.txHash) historyEntry.txHash = meta.txHash;
     if (meta.recordHash) historyEntry.recordHash = meta.recordHash;
+    if (meta.remarks) historyEntry.remarks = meta.remarks;
 
     c.history.push(historyEntry);
     
