@@ -5,7 +5,7 @@ CivicProof is a blockchain-powered public grievance tracking prototype that enab
 
 By recording complaint references, status changes, and cryptographic hashes on a blockchain, CivicProof helps detect unauthorized modifications to application-side records and provides a verifiable audit trail of complaint progress.
 
-> Built for a blockchain hackathon in Goa.
+
 
 ---
 
