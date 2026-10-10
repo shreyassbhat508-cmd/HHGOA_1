@@ -340,22 +340,15 @@
     kpiVals[2].textContent = CP.STATS.avgResolutionDays + 'd';
   }
 
-  // Dept performance (Mock Data)
-  const depts = [
-    { name:'Sanitation',    resolved:35, progress:18, open:23 },
-    { name:'Roads & Brdgs', resolved:48, progress:22, open:14 },
-    { name:'Water Auth.',   resolved:28, progress:11, open:12 },
-    { name:'Public Works',  resolved:22, progress:16, open:19 },
-    { name:'Parks & Rec.',  resolved:19, progress:10, open:8  },
-    { name:'BESCOM',        resolved:14, progress:9,  open:7  },
-  ];
+  // Dept performance
+  const depts = CP.DEPARTMENTS.slice(0, 6);
   document.getElementById('deptPerf').innerHTML = depts.map(d => {
     const total = d.resolved + d.progress + d.open;
-    const rPct = Math.round(d.resolved/total*100);
-    const pPct = Math.round(d.progress/total*100);
+    const rPct = Math.round(d.resolved/total*100) || 0;
+    const pPct = Math.round(d.progress/total*100) || 0;
     const oPct = 100 - rPct - pPct;
     return `<div class="dept-perf-row">
-      <div class="dept-perf-name">${d.name}</div>
+      <div class="dept-perf-name">${d.name.length > 14 ? d.name.substring(0, 12) + '..' : d.name}</div>
       <div class="dept-perf-bars">
         <div style="height:8px;border-radius:4px;background:var(--gray-100);overflow:hidden;display:flex">
           <div style="width:${rPct}%;background:var(--green-500);border-radius:4px 0 0 4px"></div>
@@ -368,14 +361,8 @@
   }).join('');
 
   // Top wards
-  const wards = [
-    { name:'Ward 7',  count:38 },
-    { name:'Ward 14', count:32 },
-    { name:'Ward 3',  count:28 },
-    { name:'Ward 11', count:24 },
-    { name:'Ward 9',  count:21 },
-  ];
-  const maxW = wards[0].count;
+  const wards = CP.WARDS.slice(0, 5);
+  const maxW = wards.length > 0 ? wards[0].count : 1;
   document.getElementById('topWards').innerHTML = wards.map((w,i) =>
     `<div class="ward-row">
        <div class="ward-rank">${i+1}</div>

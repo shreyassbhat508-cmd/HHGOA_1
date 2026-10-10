@@ -30,17 +30,31 @@ const CP = (() => {
     localStorage.setItem('cp_complaints', JSON.stringify(COMPLAINTS));
   }
 
-  const CATEGORIES = [
-    { name:"Infrastructure", count:42, color:"#2d8653" },
-    { name:"Sanitation",     count:38, color:"#3aad6a" },
-    { name:"Roads",          count:31, color:"#d4a017" },
-    { name:"Water",          count:24, color:"#4a90d9" },
-    { name:"Parks",          count:18, color:"#8e5ea2" },
-    { name:"Electricity",    count:15, color:"#e65c2e" },
-    { name:"Environment",    count:12, color:"#5aa67b" },
-    { name:"Buildings",      count:9,  color:"#a0522d" },
-    { name:"Animal Control", count:7,  color:"#c0392b" },
-  ];
+  // ── Dynamic Categories ──────────────────────────────
+  const categoryColors = {
+    "Infrastructure": "#2d8653",
+    "Sanitation": "#3aad6a",
+    "Roads": "#d4a017",
+    "Water": "#4a90d9",
+    "Parks": "#8e5ea2",
+    "Electricity": "#e65c2e",
+    "Environment": "#5aa67b",
+    "Buildings": "#a0522d",
+    "Animal Control": "#c0392b"
+  };
+  
+  let CATEGORIES = [];
+  {
+    const catMap = {};
+    COMPLAINTS.forEach(c => {
+      catMap[c.category] = (catMap[c.category] || 0) + 1;
+    });
+    CATEGORIES = Object.keys(catMap).map(k => ({
+      name: k,
+      count: catMap[k],
+      color: categoryColors[k] || "#adb5bd"
+    })).sort((a,b) => b.count - a.count);
+  }
 
   const DEFAULT_STATS = {
     total: 347,
@@ -67,6 +81,7 @@ const CP = (() => {
     STATS.open++;
     STATS.thisMonth++;
     localStorage.setItem('cp_stats', JSON.stringify(STATS));
+    location.reload(); // Quick refresh to update dynamic UI automatically on submit
   }
   
   function updateComplaintStatus(id, newStatus, message = "") {
@@ -74,7 +89,7 @@ const CP = (() => {
     if (!c) return false;
     
     // Update stats
-    if (c.status === 'open') STATS.open--;
+    if (c.status === 'open' || c.status === 'acknowledged') STATS.open--;
     else if (c.status === 'progress') STATS.inProgress--;
     else if (c.status === 'resolved') STATS.resolved--;
     else if (c.status === 'closed') STATS.closed--;
@@ -101,14 +116,28 @@ const CP = (() => {
 
   const WEEKLY_TREND = [12, 18, 9, 24, 16, 21, 14]; // Sun–Sat
 
-  const DEPARTMENTS = [
-    { name:"Roads & Bridges",   resolved:48, open:14, progress:22 },
-    { name:"Sanitation Dept.",  resolved:35, open:23, progress:18 },
-    { name:"Water Authority",   resolved:28, open:12, progress:11 },
-    { name:"Public Works",      resolved:22, open:19, progress:16 },
-    { name:"Parks & Recreation",resolved:19, open:8,  progress:10 },
-    { name:"BESCOM",            resolved:14, open:7,  progress:9  },
-  ];
+  // ── Dynamic Departments ──────────────────────────────
+  let DEPARTMENTS = [];
+  {
+    const deptMap = {};
+    COMPLAINTS.forEach(c => {
+      if (!deptMap[c.dept]) deptMap[c.dept] = { name: c.dept, resolved: 0, open: 0, progress: 0 };
+      if (c.status === 'resolved' || c.status === 'closed') deptMap[c.dept].resolved++;
+      else if (c.status === 'progress') deptMap[c.dept].progress++;
+      else deptMap[c.dept].open++;
+    });
+    DEPARTMENTS = Object.values(deptMap).sort((a,b) => (b.resolved+b.open+b.progress) - (a.resolved+a.open+a.progress));
+  }
+
+  // ── Dynamic Wards ───────────────────────────────────
+  let WARDS = [];
+  {
+    const wardMap = {};
+    COMPLAINTS.forEach(c => {
+      wardMap[c.ward] = (wardMap[c.ward] || 0) + 1;
+    });
+    WARDS = Object.keys(wardMap).map(k => ({ name: k, count: wardMap[k] })).sort((a,b) => b.count - a.count);
+  }
 
   /* ── Helpers ──────────────────────────────────────────── */
   function statusPill(status) {
@@ -196,7 +225,7 @@ const CP = (() => {
     document.getElementById(id)?.classList.remove('open');
   }
 
-  return { COMPLAINTS, CATEGORIES, STATS, WEEKLY_TREND, DEPARTMENTS,
+  return { COMPLAINTS, CATEGORIES, STATS, WEEKLY_TREND, DEPARTMENTS, WARDS,
            statusPill, priorityChip, relativeDate, addComplaint, updateComplaintStatus,
            initSidebar, initSearch, toast, openModal, closeModal };
 })();

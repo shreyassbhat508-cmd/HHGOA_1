@@ -307,18 +307,16 @@
   }
 
   // ── Department horizontal bars ─────────────────────────
-  const depts = [
-    { name:'Sanitation', total:76,  color:'#2d8653' },
-    { name:'Roads',      total:64,  color:'#3aad6a' },
-    { name:'Water',      total:51,  color:'#4a90d9' },
-    { name:'Public Wks', total:47,  color:'#d4a017' },
-    { name:'Parks',      total:37,  color:'#8e5ea2' },
-    { name:'BESCOM',     total:30,  color:'#e65c2e' },
-  ];
-  const maxD = Math.max(...depts.map(d=>d.total));
+  const deptColors = ['#2d8653', '#3aad6a', '#4a90d9', '#d4a017', '#8e5ea2', '#e65c2e', '#a0522d'];
+  const depts = CP.DEPARTMENTS.slice(0, 6).map((d, i) => ({
+    name: d.name.length > 12 ? d.name.substring(0, 10) + '..' : d.name,
+    total: d.resolved + d.open + d.progress,
+    color: deptColors[i % deptColors.length]
+  }));
+  const maxD = Math.max(...depts.map(d=>d.total)) || 1;
   document.getElementById('deptChart').innerHTML = depts.map(d=>
     `<div class="bar-row">
-       <div class="bar-label">${d.name}</div>
+       <div class="bar-label" title="${d.name}">${d.name}</div>
        <div class="bar-track"><div class="bar-fill" style="--bar-color:${d.color};width:${Math.round(d.total/maxD*100)}%"></div></div>
        <div class="bar-val">${d.total}</div>
      </div>`
