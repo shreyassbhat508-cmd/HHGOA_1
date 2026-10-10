@@ -342,7 +342,9 @@
   </div>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.2/ethers.umd.min.js"></script>
 <script src="app.js"></script>
+<script src="blockchain.js"></script>
 <script>
 (function() {
   CP.initSidebar();
@@ -422,43 +424,80 @@
   }
 
   // Submit
-  window.handleSubmit = function(e) {
+  window.handleSubmit = async function(e) {
     e.preventDefault();
     const btn = document.getElementById('submitBtn');
     btn.disabled = true;
     btn.textContent = 'Submitting…';
-    setTimeout(() => {
-      const num = 892 + Math.floor(Math.random()*1000);
-      const newId = `CP-2024-${num.toString().padStart(4, '0')}`;
-      
-      const newComplaint = {
-        id: newId,
-        title: document.getElementById('complaintTitle').value,
-        category: document.getElementById('category').value,
-        ward: document.getElementById('ward').value,
-        location: document.getElementById('address').value,
-        status: "open",
-        priority: document.getElementById('priority').value,
-        date: new Date().toISOString().split('T')[0],
-        reporter: document.getElementById('reporterName').value,
-        dept: "Pending Assignment",
-        description: document.getElementById('description').value
-      };
-      
-      CP.addComplaint(newComplaint);
 
-      document.getElementById('ticketNum').textContent = newId;
-      const overlay = document.getElementById('successOverlay');
-      overlay.classList.add('show');
-      const card = overlay.querySelector('.card');
-      if (card) {
-        card.classList.remove('submit-success');
-        void card.offsetWidth; // Trigger reflow to restart animation
-        card.classList.add('submit-success');
+    const num = 892 + Math.floor(Math.random()*1000);
+    const newId = `CP-2024-${num.toString().padStart(4, '0')}`;
+    
+    const initialRemarks = document.getElementById('complaintTitle').value.trim();
+
+    const newComplaint = {
+      id: newId,
+      title: initialRemarks,
+      category: document.getElementById('category').value,
+      ward: document.getElementById('ward').value,
+      location: document.getElementById('address').value,
+      status: "open",
+      priority: document.getElementById('priority').value,
+      date: new Date().toISOString().split('T')[0],
+      reporter: document.getElementById('reporterName').value,
+      dept: "Pending Assignment",
+      description: document.getElementById('description').value,
+      remarks: initialRemarks,
+      history: [
+        {
+          status: "open",
+          timestamp: new Date().toISOString(),
+          message: "Complaint submitted.",
+          remarks: initialRemarks,
+          description: document.getElementById('description').value
+        }
+      ]
+    };
+    
+    // Attempt on-chain registration via BlockchainService bridge
+    try {
+      if (window.BlockchainService) {
+        const regRes = await window.BlockchainService.registerComplaint(
+          newId,
+          newComplaint.description,
+          initialRemarks
+        );
+        if (regRes && regRes.success) {
+          if (regRes.txHash) {
+            newComplaint.txHash = regRes.txHash;
+            newComplaint.history[0].txHash = regRes.txHash;
+          }
+          if (regRes.recordHash) {
+            newComplaint.recordHash = regRes.recordHash;
+            newComplaint.history[0].recordHash = regRes.recordHash;
+          }
+          newComplaint.onChainConfirmed = true;
+        }
       }
-      btn.disabled = false;
-      btn.textContent = 'Submit Complaint';
-    }, 1200);
+    } catch (bcErr) {
+      console.warn("On-chain registration notice:", bcErr.message);
+      newComplaint.onChainConfirmed = false;
+    }
+
+    // Save to local storage DB without instant page reload
+    CP.addComplaint(newComplaint, false);
+
+    document.getElementById('ticketNum').textContent = newId;
+    const overlay = document.getElementById('successOverlay');
+    overlay.classList.add('show');
+    const card = overlay.querySelector('.card');
+    if (card) {
+      card.classList.remove('submit-success');
+      void card.offsetWidth; // Trigger reflow to restart animation
+      card.classList.add('submit-success');
+    }
+    btn.disabled = false;
+    btn.textContent = 'Submit Complaint';
   };
 })();
 </script>

@@ -165,7 +165,10 @@
                   <span><svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg> <span id="resReporter">--</span></span>
                 </div>
               </div>
-              <div id="resStatusPill"></div>
+              <div style="display:flex; flex-direction:column; align-items:flex-end; gap:8px;">
+                <div id="resStatusPill"></div>
+                <div id="onChainBadgeBox"></div>
+              </div>
             </div>
             <div class="details-body">
               <div class="details-main">
@@ -191,12 +194,14 @@
   </div>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.2/ethers.umd.min.js"></script>
 <script src="app.js"></script>
+<script src="blockchain.js"></script>
 <script>
 (function() {
   CP.initSidebar();
 
-  window.handleSearch = function(e) {
+  window.handleSearch = async function(e) {
     e.preventDefault();
     const id = document.getElementById('trackInput').value.trim();
     if (!id) return;
@@ -206,22 +211,19 @@
     document.getElementById('state-loading').classList.add('active');
     document.getElementById('trackBtn').disabled = true;
 
-    // Simulate network delay
-    setTimeout(() => {
-      document.getElementById('trackBtn').disabled = false;
-      const complaint = CP.COMPLAINTS.find(c => c.id.toLowerCase() === id.toLowerCase());
-      
-      document.getElementById('state-loading').classList.remove('active');
-      if (complaint) {
-        renderComplaint(complaint);
-        document.getElementById('state-result').classList.add('active');
-      } else {
-        document.getElementById('state-notfound').classList.add('active');
-      }
-    }, 800);
+    const complaint = CP.COMPLAINTS.find(c => c.id.toLowerCase() === id.toLowerCase());
+
+    document.getElementById('trackBtn').disabled = false;
+    document.getElementById('state-loading').classList.remove('active');
+    if (complaint) {
+      await renderComplaint(complaint);
+      document.getElementById('state-result').classList.add('active');
+    } else {
+      document.getElementById('state-notfound').classList.add('active');
+    }
   };
 
-  function renderComplaint(c) {
+  async function renderComplaint(c) {
     document.getElementById('resTitle').textContent = c.title;
     document.getElementById('resId').textContent = c.id;
     document.getElementById('resDate').textContent = CP.relativeDate(c.date);
@@ -231,6 +233,42 @@
     document.getElementById('resDept').textContent = c.dept;
     document.getElementById('resCategory').textContent = c.category;
     document.getElementById('resStatusPill').innerHTML = CP.statusPill(c.status);
+
+    let onChainLogs = [];
+    try {
+      if (window.BlockchainService) {
+        onChainLogs = await window.BlockchainService.getHistory(c.id);
+      }
+    } catch {
+      onChainLogs = [];
+    }
+
+    const badgeBox = document.getElementById('onChainBadgeBox');
+    try {
+      if (window.BlockchainService) {
+        const onChain = await window.BlockchainService.getComplaint(c.id);
+        if (onChain && onChain.exists) {
+          badgeBox.innerHTML = `
+            <div style="background:#ecfdf5; border:1px solid #a7f3d0; color:#065f46; padding:6px 12px; border-radius:6px; font-size:0.75rem; font-weight:600; text-align:right;">
+              ✓ ON-CHAIN VERIFIED CHECKPOINT<br/>
+              <span style="font-family:monospace; font-size:0.7rem; color:#047857;">Hash: ${onChain.latestRecordHash.slice(0, 10)}...${onChain.latestRecordHash.slice(-8)}</span>
+            </div>
+          `;
+        } else {
+          badgeBox.innerHTML = `
+            <div style="background:#f9fafb; border:1px solid #e5e7eb; color:#6b7280; padding:6px 12px; border-radius:6px; font-size:0.75rem; text-align:right;">
+              ℹ Local Record (Unconfirmed On-Chain)
+            </div>
+          `;
+        }
+      }
+    } catch {
+      badgeBox.innerHTML = `
+        <div style="background:#f9fafb; border:1px solid #e5e7eb; color:#6b7280; padding:6px 12px; border-radius:6px; font-size:0.75rem; text-align:right;">
+          ℹ Local Record (Unconfirmed On-Chain)
+        </div>
+      `;
+    }
 
     // Build timeline based on status
     const statusOrder = ['open', 'acknowledged', 'progress', 'resolved'];
@@ -244,7 +282,6 @@
     
     let history = c.history;
     if (!history) {
-      // Fallback if no history exists for old mock data
       history = [{ status: 'open', timestamp: new Date(c.date).toISOString(), message: statusDesc.open }];
       if (c.status === 'progress' || c.status === 'resolved' || c.status === 'closed') {
         history.push({ status: 'acknowledged', timestamp: addDays(c.date, 1), message: statusDesc.acknowledged });
@@ -265,11 +302,13 @@
 
     const steps = statusOrder.map((st, i) => {
       const histItem = history.find(h => h.status === st || (st === 'resolved' && h.status === 'closed'));
+      const onChainItem = onChainLogs.find(h => Number(h.status) === i);
       return {
         title: statusTitles[st],
         desc: histItem ? (histItem.message || statusDesc[st]) : statusDesc[st],
-        date: histItem ? histItem.timestamp : null,
-        state: histItem ? (i === currentStep && i !== 3 ? 'active' : 'completed') : 'pending'
+        date: onChainItem ? new Date(onChainItem.timestamp * 1000).toISOString() : (histItem ? histItem.timestamp : null),
+        state: (histItem || onChainItem) ? (i === currentStep && i !== 3 ? 'active' : 'completed') : 'pending',
+        onChain: onChainItem
       };
     });
 
@@ -280,6 +319,7 @@
           <div class="timeline-title">${s.title}</div>
           ${s.date ? `<div class="timeline-date">${CP.relativeDate(s.date)} <span style="font-size:0.7rem;opacity:0.7">(${new Date(s.date).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})})</span></div>` : ''}
           <div class="timeline-desc">${s.desc}</div>
+          ${s.onChain ? `<div style="font-size:0.7rem; font-family:monospace; color:#047857; margin-top:4px;">✓ Verified On-Chain | Signer: ${s.onChain.updatedBy.slice(0,6)}...${s.onChain.updatedBy.slice(-4)}</div>` : (s.state !== 'pending' ? `<div style="font-size:0.7rem; color:#9ca3af; margin-top:4px;">ℹ Local Unconfirmed Checkpoint</div>` : '')}
         </div>
       </div>
     `).join('');

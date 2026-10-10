@@ -198,10 +198,10 @@
                   The blockchain service is currently in demo state. No live Web3 provider or active smart contract connection was detected.
                 </div>
                 
-                <div style="font-size:0.8rem; color:var(--gray-500); line-height:1.6; border-top:1px solid var(--gray-200); padding-top:16px">
-                  <div style="margin-bottom:8px"><strong>Transaction Hash:</strong><br/><span style="font-family:monospace; color:var(--gray-400)">N/A - Not Connected</span></div>
-                  <div style="margin-bottom:8px"><strong>Block Number:</strong><br/><span style="font-family:monospace; color:var(--gray-400)">N/A - Not Connected</span></div>
-                  <div><strong>Contract Address:</strong><br/><span style="font-family:monospace; color:var(--gray-400)">N/A - Not Connected</span></div>
+                <div style="font-size:0.8rem; color:var(--gray-500); line-height:1.6; border-top:1px solid var(--gray-200); padding-top:16px" id="auditDetailsBox">
+                  <div style="margin-bottom:8px"><strong>Latest Record Hash:</strong><br/><span id="auditRecordHash" style="font-family:monospace; color:var(--gray-400); word-break:break-all">N/A - Not Connected</span></div>
+                  <div style="margin-bottom:8px"><strong>Status Checkpoint:</strong><br/><span id="auditStatusStr" style="font-family:monospace; color:var(--gray-400)">N/A - Not Connected</span></div>
+                  <div><strong>Contract Address:</strong><br/><span id="auditContractAddr" style="font-family:monospace; color:var(--gray-400); word-break:break-all">N/A - Not Connected</span></div>
                 </div>
               </div>
             </div>
@@ -214,6 +214,7 @@
   </div>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.2/ethers.umd.min.js"></script>
 <script src="app.js"></script>
 <script src="blockchain.js"></script>
 <script>
@@ -269,17 +270,83 @@
     }).join('');
 
     // Handle Blockchain result
-    // Per requirements: Display clearly labeled demo state, no fake hashes
-    if (result.status === "DEMO_UNCONNECTED") {
-      document.getElementById('badgeStatus').className = 'status-badge unverified';
-      document.getElementById('badgeStatus').innerHTML = `
+    const badge = document.getElementById('badgeStatus');
+    const alertBox = document.getElementById('alertMsg');
+    const recordHashEl = document.getElementById('auditRecordHash');
+    const statusStrEl = document.getElementById('auditStatusStr');
+    const contractAddrEl = document.getElementById('auditContractAddr');
+
+    if (result.status === "VERIFIED") {
+      badge.className = 'status-badge verified';
+      badge.style.backgroundColor = '#ecfdf5';
+      badge.style.color = '#047857';
+      badge.style.borderColor = '#a7f3d0';
+      badge.innerHTML = `
+        <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+        VERIFIED ON-CHAIN
+      `;
+      alertBox.className = 'alert-box success';
+      alertBox.style.backgroundColor = '#ecfdf5';
+      alertBox.style.borderColor = '#a7f3d0';
+      alertBox.style.color = '#065f46';
+      alertBox.innerHTML = `
+        <strong>Cryptographic Hash Verified</strong><br/>
+        ${result.message}
+      `;
+      recordHashEl.textContent = result.latestRecordHash || 'Verified';
+      statusStrEl.textContent = `${result.currentStatusLabel || 'Recorded'} (Index Checkpoint Passed)`;
+      contractAddrEl.textContent = result.contractAddress || '0x5FbDB2315678afecb367f032d93F642f64180aa3';
+    } else if (result.status === "TAMPERED") {
+      badge.className = 'status-badge unverified';
+      badge.style.backgroundColor = '#fff1f2';
+      badge.style.color = '#be123c';
+      badge.style.borderColor = '#fecdd3';
+      badge.innerHTML = `
+        <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+        TAMPER DETECTED
+      `;
+      alertBox.className = 'alert-box danger';
+      alertBox.style.backgroundColor = '#fff1f2';
+      alertBox.style.borderColor = '#fecdd3';
+      alertBox.style.color = '#9f1239';
+      alertBox.innerHTML = `
+        <strong>Integrity Check Failed</strong><br/>
+        ${result.message}
+      `;
+      recordHashEl.textContent = `On-Chain: ${result.latestRecordHash}\nExpected: ${result.expectedHash}`;
+      statusStrEl.textContent = `On-Chain Status: ${result.currentStatusLabel || 'Unknown'}`;
+      contractAddrEl.textContent = result.contractAddress || '0x5FbDB2315678afecb367f032d93F642f64180aa3';
+    } else if (result.status === "NOT_FOUND_ON_CHAIN") {
+      badge.className = 'status-badge unverified';
+      badge.style.backgroundColor = '#fffbe6';
+      badge.style.color = '#b78103';
+      badge.style.borderColor = '#ffe58f';
+      badge.innerHTML = `
+        <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+        UNCHECKED (NOT ON-CHAIN)
+      `;
+      alertBox.className = 'alert-box warning';
+      alertBox.innerHTML = `
+        <strong>On-Chain Checkpoint Missing</strong><br/>
+        ${result.message}
+      `;
+      recordHashEl.textContent = 'None Recorded';
+      statusStrEl.textContent = 'Off-Chain Only';
+      contractAddrEl.textContent = result.contractAddress || '0x5FbDB2315678afecb367f032d93F642f64180aa3';
+    } else {
+      badge.className = 'status-badge unverified';
+      badge.innerHTML = `
         <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
         UNVERIFIED (DEMO MODE)
       `;
-      document.getElementById('alertMsg').innerHTML = `
+      alertBox.className = 'alert-box warning';
+      alertBox.innerHTML = `
         <strong>Verification Unavailable</strong><br/>
         ${result.message}
       `;
+      recordHashEl.textContent = 'N/A - Not Connected';
+      statusStrEl.textContent = 'N/A - Not Connected';
+      contractAddrEl.textContent = 'N/A - Not Connected';
     }
 
     document.getElementById('state-result').classList.add('active');

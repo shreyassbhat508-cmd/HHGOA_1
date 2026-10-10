@@ -171,7 +171,9 @@
   </div>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.2/ethers.umd.min.js"></script>
 <script src="app.js"></script>
+<script src="blockchain.js"></script>
 <script>
 (function() {
   CP.initSidebar();
@@ -252,17 +254,48 @@
     panel.classList.remove('open');
   };
 
-  window.updateStatus = function(newStatus) {
+  window.updateStatus = async function(newStatus) {
     if (!currentSelection) return;
     
-    const success = CP.updateComplaintStatus(currentSelection, newStatus, `Admin updated status to ${newStatus}`);
-    if (success) {
-      CP.toast('Status updated successfully.', 'success');
-      // Re-render UI
+    const c = CP.COMPLAINTS.find(x => x.id === currentSelection);
+    if (!c) return;
+
+    const remarksStr = `Admin status update: ${newStatus}`;
+    let txMeta = {};
+
+    try {
+      if (window.BlockchainService) {
+        const res = await window.BlockchainService.updateStatus(
+          currentSelection,
+          newStatus,
+          c.description || newStatus,
+          remarksStr
+        );
+        if (res && res.txHash) {
+          txMeta = { txHash: res.txHash, recordHash: res.recordHash, remarks: remarksStr };
+        }
+      }
+
+      // Update local storage DB only when on-chain update succeeds or in offline mode
+      const success = CP.updateComplaintStatus(
+        currentSelection,
+        newStatus,
+        `Admin updated status to ${newStatus}`,
+        txMeta
+      );
+
+      if (success) {
+        CP.toast(`Status updated to ${newStatus}${txMeta.txHash ? ' (Recorded On-Chain)' : ''}.`, 'success');
+        renderList();
+        selectComplaint(currentSelection);
+      } else {
+        CP.toast('Failed to update status in local database.', 'error');
+      }
+    } catch (err) {
+      console.error("Admin status update error:", err);
+      CP.toast(`Update Failed: ${err.message || "Transaction failed"}`, 'error');
       renderList();
       selectComplaint(currentSelection);
-    } else {
-      CP.toast('Failed to update status.', 'error');
     }
   };
 

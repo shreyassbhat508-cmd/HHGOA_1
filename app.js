@@ -73,7 +73,7 @@ const CP = (() => {
     localStorage.setItem('cp_stats', JSON.stringify(STATS));
   }
   
-  function addComplaint(complaint) {
+  function addComplaint(complaint, autoReload = true) {
     COMPLAINTS.unshift(complaint);
     localStorage.setItem('cp_complaints', JSON.stringify(COMPLAINTS));
     
@@ -81,10 +81,12 @@ const CP = (() => {
     STATS.open++;
     STATS.thisMonth++;
     localStorage.setItem('cp_stats', JSON.stringify(STATS));
-    location.reload(); // Quick refresh to update dynamic UI automatically on submit
+    if (autoReload) {
+      location.reload();
+    }
   }
   
-  function updateComplaintStatus(id, newStatus, message = "") {
+  function updateComplaintStatus(id, newStatus, message = "", meta = {}) {
     const c = COMPLAINTS.find(x => x.id === id);
     if (!c) return false;
     
@@ -95,6 +97,8 @@ const CP = (() => {
     else if (c.status === 'closed') STATS.closed--;
     
     c.status = newStatus;
+    if (meta.txHash) c.txHash = meta.txHash;
+    if (meta.recordHash) c.recordHash = meta.recordHash;
     
     if (c.status === 'open' || c.status === 'acknowledged') STATS.open++;
     else if (c.status === 'progress') STATS.inProgress++;
@@ -107,7 +111,15 @@ const CP = (() => {
       ];
     }
     
-    c.history.push({ status: newStatus, timestamp: new Date().toISOString(), message: message });
+    const historyEntry = {
+      status: newStatus,
+      timestamp: new Date().toISOString(),
+      message: message
+    };
+    if (meta.txHash) historyEntry.txHash = meta.txHash;
+    if (meta.recordHash) historyEntry.recordHash = meta.recordHash;
+
+    c.history.push(historyEntry);
     
     localStorage.setItem('cp_complaints', JSON.stringify(COMPLAINTS));
     localStorage.setItem('cp_stats', JSON.stringify(STATS));
