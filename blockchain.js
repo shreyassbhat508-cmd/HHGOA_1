@@ -238,15 +238,32 @@
           if (accounts && accounts.length > 0) {
             _signer = await browserProvider.getSigner();
           } else {
-            _signer = null;
+            // Attempt local JsonRpcProvider signer fallback
+            const jsonProvider = new eth.JsonRpcProvider(DEFAULT_DEPLOYMENT.rpcUrl);
+            _provider = jsonProvider;
+            try {
+              _signer = await jsonProvider.getSigner(0);
+            } catch {
+              _signer = null;
+            }
           }
         } catch {
-          _provider = new eth.JsonRpcProvider(DEFAULT_DEPLOYMENT.rpcUrl);
-          _signer = null;
+          const jsonProvider = new eth.JsonRpcProvider(DEFAULT_DEPLOYMENT.rpcUrl);
+          _provider = jsonProvider;
+          try {
+            _signer = await jsonProvider.getSigner(0);
+          } catch {
+            _signer = null;
+          }
         }
       } else {
-        _provider = new eth.JsonRpcProvider(DEFAULT_DEPLOYMENT.rpcUrl);
-        _signer = null;
+        const jsonProvider = new eth.JsonRpcProvider(DEFAULT_DEPLOYMENT.rpcUrl);
+        _provider = jsonProvider;
+        try {
+          _signer = await jsonProvider.getSigner(0);
+        } catch {
+          _signer = null;
+        }
       }
 
       const connectionTarget = _signer || _provider;
@@ -561,28 +578,105 @@
         remarks: h.remarks
       }));
 
-      const localHistory = localComplaintRecord?.history || [];
+      const localHistory = Array.isArray(localComplaintRecord?.history) ? localComplaintRecord.history : [];
+
+      // Requirement 1: Detect missing, empty, shortened, or extra local history array whenever it differs from authoritative on-chain history
+      if (localHistory.length !== historyLogs.length) {
+        return {
+          status: "TAMPERED",
+          isValid: false,
+          message: `History Count Mismatch! Local history length (${localHistory.length}) does not match authoritative on-chain audit log length (${historyLogs.length}).`,
+          contractAddress: _contractAddress,
+          latestRecordHash: complaint.latestRecordHash,
+          history: historyLogs
+        };
+      }
 
       // Verify EVERY historical checkpoint on-chain using contract verifyHistoricalRecord
       for (let i = 0; i < historyLogs.length; i++) {
         const onChainEntry = historyLogs[i];
+        const localEntry = localHistory[i];
 
-        // Determine details for checkpoint i
-        let detailsContent;
-        if (i === 0) {
-          detailsContent = localComplaintRecord?.description || localComplaintRecord?.title || id;
-        } else {
-          detailsContent = localHistory[i]?.description || localComplaintRecord?.description || localComplaintRecord?.title || id;
+        // Validate local history entry presence
+        if (!localEntry) {
+          return {
+            status: "TAMPERED",
+            isValid: false,
+            failingIndex: i,
+            failingStatus: onChainEntry.statusLabel,
+            message: `Incomplete Local Record! Local history entry at checkpoint #${i} is missing.`,
+            contractAddress: _contractAddress,
+            latestRecordHash: complaint.latestRecordHash,
+            history: historyLogs
+          };
+        }
+
+        // Requirement: Extract local status exclusively from checkpoint entry (no fallback to top-level record if deleted)
+        const rawLocalStatus = localEntry.status;
+        if (rawLocalStatus === undefined || rawLocalStatus === null) {
+          return {
+            status: "TAMPERED",
+            isValid: false,
+            failingIndex: i,
+            failingStatus: onChainEntry.statusLabel,
+            message: `Incomplete Local Record! Local checkpoint #${i} does not specify a status.`,
+            contractAddress: _contractAddress,
+            latestRecordHash: complaint.latestRecordHash,
+            history: historyLogs
+          };
+        }
+
+        const localStatusInt = parseStatusEnum(rawLocalStatus);
+
+        // Check local status against on-chain status
+        if (localStatusInt !== onChainEntry.status) {
+          return {
+            status: "TAMPERED",
+            isValid: false,
+            failingIndex: i,
+            failingStatus: onChainEntry.statusLabel,
+            message: `Status Mismatch at Checkpoint #${i}! Local status '${rawLocalStatus}' (${localStatusInt}) differs from authoritative on-chain status '${onChainEntry.statusLabel}' (${onChainEntry.status}).`,
+            contractAddress: _contractAddress,
+            latestRecordHash: complaint.latestRecordHash,
+            history: historyLogs
+          };
+        }
+
+        // Requirement: Extract local remarks exclusively from local history entry (supporting legitimate 'remarks' and 'message' aliases; no top-level fallback)
+        const localRemarks = localEntry.remarks ?? localEntry.message;
+        if (localRemarks === undefined || localRemarks === null || String(localRemarks).trim() === "") {
+          return {
+            status: "TAMPERED",
+            isValid: false,
+            failingIndex: i,
+            failingStatus: onChainEntry.statusLabel,
+            message: `Incomplete Local Record! Local checkpoint #${i} is missing required remarks/message content.`,
+            contractAddress: _contractAddress,
+            latestRecordHash: complaint.latestRecordHash,
+            history: historyLogs
+          };
+        }
+
+        // Requirement: Original complaint description is mandatory for computing detailsHash (no substitution of title or ID)
+        const detailsContent = localEntry.description || localComplaintRecord?.description;
+        if (!detailsContent || String(detailsContent).trim() === "") {
+          return {
+            status: "TAMPERED",
+            isValid: false,
+            failingIndex: i,
+            failingStatus: onChainEntry.statusLabel,
+            message: `Incomplete Local Record! Checkpoint #${i} lacks original complaint description required to compute details hash.`,
+            contractAddress: _contractAddress,
+            latestRecordHash: complaint.latestRecordHash,
+            history: historyLogs
+          };
         }
         const detailsHash = makeDetailsHash(detailsContent);
 
-        // Exact remarks recorded on-chain for checkpoint i
-        const checkpointRemarks = onChainEntry.remarks || (i === 0 ? (localComplaintRecord?.title || "") : `Admin status update: ${statusLabel(onChainEntry.status)}`);
+        // Compute expected hash exclusively from validated local evidence using canonical Solidity formula
+        const expectedHashForCheck = computeRecordHash(cId, localStatusInt, detailsHash, String(localRemarks));
 
-        // Compute expected hash for checkpoint i using checkpoint's own status, detailsHash, and remarks
-        const expectedHashForCheck = computeRecordHash(cId, onChainEntry.status, detailsHash, checkpointRemarks);
-
-        // Call smart contract view function verifyHistoricalRecord
+        // Call smart contract view function verifyHistoricalRecord against on-chain record hash
         let isCheckValid = false;
         try {
           const [isValid] = await _contract.verifyHistoricalRecord(cId, i, expectedHashForCheck);
@@ -597,7 +691,7 @@
             isValid: false,
             failingIndex: i,
             failingStatus: onChainEntry.statusLabel,
-            message: `Integrity Check Failed at Checkpoint #${i} (${onChainEntry.statusLabel})! Off-chain details digest does not match on-chain record hash (${onChainEntry.recordHash}).`,
+            message: `Integrity Check Failed at Checkpoint #${i} (${onChainEntry.statusLabel})! Local checkpoint data digest does not match on-chain record hash (${onChainEntry.recordHash}).`,
             contractAddress: _contractAddress,
             latestRecordHash: complaint.latestRecordHash,
             expectedHash: expectedHashForCheck,
