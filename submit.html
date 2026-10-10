@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Submit a Complaint — Civic Proof</title>
+  <meta name="description" content="Submit a new public grievance through the Civic Proof portal. Track your complaint status in real time."/>
+  <link rel="stylesheet" href="style.css"/>
+  <style>
+    .submit-grid { display:grid; grid-template-columns:1fr 340px; gap:24px; align-items:start; }
+    @media(max-width:960px) { .submit-grid { grid-template-columns:1fr; } }
+    .char-count { font-size:.72rem; color:var(--gray-400); float:right; margin-top:4px; }
+    .step-indicator { display:flex; align-items:center; gap:0; margin-bottom:28px; }
+    .step { display:flex; align-items:center; gap:8px; font-size:.8rem; font-weight:600; }
+    .step-circle {
+      width:28px; height:28px; border-radius:50%;
+      background:var(--gray-200); color:var(--gray-500);
+      display:flex; align-items:center; justify-content:center;
+      font-size:.75rem; font-weight:700; flex-shrink:0;
+      transition: all .2s;
+    }
+    .step.active .step-circle { background:var(--green-500); color:#fff; }
+    .step.done .step-circle { background:var(--green-600); color:#fff; }
+    .step-line { flex:1; height:2px; background:var(--gray-200); min-width:30px; }
+    .step-line.done { background:var(--green-400); }
+    .step-label { color:var(--gray-400); }
+    .step.active .step-label { color:var(--green-700); }
+    .step.done .step-label { color:var(--green-600); }
+    .tip-card { background:var(--green-50); border:1px solid var(--green-300); border-radius:var(--radius-lg); padding:18px; margin-bottom:16px; }
+    .tip-card h4 { font-size:.85rem; font-weight:700; color:var(--green-800); margin-bottom:8px; }
+    .tip-card ul { font-size:.8rem; color:var(--green-700); padding-left:18px; line-height:1.9; }
+    .map-placeholder {
+      background:var(--gray-100); border-radius:var(--radius-md);
+      height:180px; display:flex; flex-direction:column; align-items:center; justify-content:center;
+      color:var(--gray-400); font-size:.83rem; border:1.5px dashed var(--gray-300); cursor:pointer;
+      transition:all .2s;
+    }
+    .map-placeholder:hover { border-color:var(--green-400); background:var(--green-50); color:var(--green-600); }
+    .success-overlay {
+      display:none; position:fixed; inset:0; background:rgba(13,43,30,.5); z-index:600;
+      align-items:center; justify-content:center; backdrop-filter:blur(4px);
+    }
+    .success-overlay.show { display:flex; }
+    .success-card {
+      background:#fff; border-radius:var(--radius-lg); padding:40px 36px; text-align:center;
+      max-width:420px; box-shadow:var(--shadow-lg);
+      animation:fadeInUp .3s ease;
+    }
+    .success-icon { width:72px; height:72px; border-radius:50%; background:var(--green-100); margin:0 auto 20px; display:flex; align-items:center; justify-content:center; }
+    .ticket-box { background:var(--gray-50); border-radius:10px; padding:14px 20px; margin:20px 0; font-family:monospace; font-size:1.3rem; font-weight:800; color:var(--green-700); letter-spacing:.1em; border:1px dashed var(--green-300); }
+  </style>
+</head>
+<body>
+<div class="app-shell">
+
+  <!-- Sidebar -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <a class="sidebar-brand" href="index.html">
+      <img src="logo.jpg" alt="Civic Proof logo"/>
+      <div class="sidebar-brand-text">
+        <span class="brand-name">Civic Proof</span>
+        <span class="brand-tagline">Public Grievance Portal</span>
+      </div>
+    </a>
+      <button class="sidebar-toggle-btn" id="sidebarToggle">
+        <svg id="sidebarToggleIcon" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-section-label">Overview</div>
+      <a class="nav-item" href="index.html"><svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg><span>Dashboard</span></a>
+      <a class="nav-item" href="analytics.html"><svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>Analytics</span></a>
+      <div class="nav-section-label">Complaints</div>
+      <a class="nav-item" href="complaints.html"><svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg><span>All Complaints</span><span class="nav-badge">89</span></a>
+      <a class="nav-item active" href="submit.html"><svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg><span>Submit Complaint</span></a>
+      <a class="nav-item" href="track.html"><svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><span>Track Complaint</span></a>
+      <a class="nav-item" href="verify.html"><svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg><span>Verify Integrity</span></a>
+      <div class="nav-section-label">Administration</div>
+      <a class="nav-item" href="settings.html"><svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg><span>Settings</span></a>
+    </nav>
+    </aside>
+
+  <div class="main-content" id="mainContent">
+    <header class="topbar">
+      <div class="topbar-left">
+        <div class="topbar-title">Submit a Complaint</div>
+        <div class="topbar-subtitle">Fill in the details below to register your grievance</div>
+      </div>
+      <div class="topbar-actions">
+
+
+        <a class="btn btn-ghost btn-sm" href="complaints.html">← Back to Complaints</a>
+        <div class="avatar">RK</div>
+                  </div>
+    </header>
+
+    <main class="page-content">
+
+      <!-- Step indicator -->
+      <div class="step-indicator" id="stepIndicator">
+        <div class="step active" id="step1">
+          <div class="step-circle">1</div>
+          <span class="step-label">Basic Info</span>
+        </div>
+        <div class="step-line" id="line1"></div>
+        <div class="step" id="step2">
+          <div class="step-circle">2</div>
+          <span class="step-label">Description</span>
+        </div>
+        <div class="step-line" id="line2"></div>
+        <div class="step" id="step3">
+          <div class="step-circle">3</div>
+          <span class="step-label">Review & Submit</span>
+        </div>
+      </div>
+
+      <form id="complaintForm" onsubmit="handleSubmit(event)">
+        <div class="submit-grid">
+
+          <!-- Left: form -->
+          <div>
+
+            <!-- Step 1: Basic Info -->
+            <div id="formStep1">
+              <div class="card" style="padding:24px;margin-bottom:20px">
+                <div class="card-title mb-3">Basic Information</div>
+
+                <div class="form-group">
+                  <label class="form-label" for="reporterName">Full Name <span class="required">*</span></label>
+                  <input class="form-control" type="text" id="reporterName" placeholder="e.g. Rajesh Kumar" required/>
+                </div>
+
+                <div class="form-row">
+                  <div class="form-group mb-0">
+                    <label class="form-label" for="reporterPhone">Phone Number <span class="required">*</span></label>
+                    <input class="form-control" type="tel" id="reporterPhone" placeholder="+91 98765 43210" required/>
+                  </div>
+                  <div class="form-group mb-0">
+                    <label class="form-label" for="reporterEmail">Email Address</label>
+                    <input class="form-control" type="email" id="reporterEmail" placeholder="you@email.com"/>
+                    <div class="form-hint">For status notifications (optional)</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="card" style="padding:24px;margin-bottom:20px">
+                <div class="card-title mb-3">Complaint Details</div>
+
+                <div class="form-group">
+                  <label class="form-label" for="complaintTitle">Complaint Title <span class="required">*</span></label>
+                  <input class="form-control" type="text" id="complaintTitle" placeholder="Brief, clear title of the issue" required maxlength="120"/>
+                  <div class="form-hint char-count" id="titleCount">0 / 120</div>
+                </div>
+
+                <div class="form-row">
+                  <div class="form-group mb-0">
+                    <label class="form-label" for="category">Category <span class="required">*</span></label>
+                    <div style="position:relative">
+                      <select class="form-control" id="category" required style="padding-right:32px">
+                        <option value="">Select category</option>
+                        <option>Infrastructure</option>
+                        <option>Sanitation</option>
+                        <option>Roads</option>
+                        <option>Water</option>
+                        <option>Parks</option>
+                        <option>Electricity</option>
+                        <option>Environment</option>
+                        <option>Buildings</option>
+                        <option>Animal Control</option>
+                        <option>Other</option>
+                      </select>
+                      <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);pointer-events:none;color:var(--gray-400)"><polyline points="6 9 12 15 18 9"/></svg>
+                    </div>
+                  </div>
+                  <div class="form-group mb-0">
+                    <label class="form-label" for="priority">Priority <span class="required">*</span></label>
+                    <div style="position:relative">
+                      <select class="form-control" id="priority" required style="padding-right:32px">
+                        <option value="">Select priority</option>
+                        <option value="critical">🔴 Critical — Immediate danger</option>
+                        <option value="high">🟠 High — Urgent attention needed</option>
+                        <option value="medium" selected>🟡 Medium — Within 1 week</option>
+                        <option value="low">🟢 Low — Within a month</option>
+                      </select>
+                      <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);pointer-events:none;color:var(--gray-400)"><polyline points="6 9 12 15 18 9"/></svg>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="card" style="padding:24px;margin-bottom:20px">
+                <div class="card-title mb-3">Location</div>
+                <div class="form-row">
+                  <div class="form-group mb-0">
+                    <label class="form-label" for="ward">Ward / Area <span class="required">*</span></label>
+                    <div style="position:relative">
+                      <select class="form-control" id="ward" required style="padding-right:32px">
+                        <option value="">Select ward</option>
+                      </select>
+                      <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);pointer-events:none;color:var(--gray-400)"><polyline points="6 9 12 15 18 9"/></svg>
+                    </div>
+                  </div>
+                  <div class="form-group mb-0">
+                    <label class="form-label" for="landmark">Nearby Landmark</label>
+                    <input class="form-control" type="text" id="landmark" placeholder="e.g. Near Gandhi Statue"/>
+                  </div>
+                </div>
+                <div class="form-group mt-3">
+                  <label class="form-label" for="address">Full Address / Location <span class="required">*</span></label>
+                  <input class="form-control" type="text" id="address" placeholder="Street name, block, sector…" required/>
+                </div>
+                <div class="map-placeholder mt-2" onclick="CP.toast('Map picker would open here','success')">
+                  <svg width="28" height="28" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" style="margin-bottom:6px"><path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                  <span>Click to pin location on map</span>
+                </div>
+              </div>
+
+              <div style="display:flex;justify-content:flex-end">
+                <button type="button" class="btn btn-primary" onclick="goStep(2)">Continue to Description →</button>
+              </div>
+            </div>
+
+            <!-- Step 2: Description -->
+            <div id="formStep2" class="hidden">
+              <div class="card" style="padding:24px;margin-bottom:20px">
+                <div class="card-title mb-3">Detailed Description</div>
+                <div class="form-group">
+                  <label class="form-label" for="description">Describe the Issue <span class="required">*</span></label>
+                  <textarea class="form-control" id="description" rows="6" placeholder="Describe the problem in detail. Include when it started, how it affects you, and any relevant observations…" maxlength="2000" required></textarea>
+                  <div class="form-hint char-count" id="descCount">0 / 2000</div>
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">Attachments <span style="font-weight:400;color:var(--gray-500)">(optional)</span></label>
+                  <div class="upload-zone" onclick="CP.toast('File upload ready','success')">
+                    <svg width="28" height="28" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                    <p>Drag & drop photos/videos here</p>
+                    <span>JPG, PNG, MP4 — Max 10 MB each</span>
+                  </div>
+                </div>
+              </div>
+
+              <div style="display:flex;justify-content:space-between">
+                <button type="button" class="btn btn-ghost" onclick="goStep(1)">← Back</button>
+                <button type="button" class="btn btn-primary" onclick="goStep(3)">Review & Submit →</button>
+              </div>
+            </div>
+
+            <!-- Step 3: Review -->
+            <div id="formStep3" class="hidden">
+              <div class="card" style="padding:24px;margin-bottom:20px">
+                <div class="card-title mb-3">Review Your Complaint</div>
+                <div id="reviewContent" style="font-size:.875rem;line-height:2"></div>
+                <div class="alert-banner alert-success mt-3" style="margin-bottom:0">
+                  <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                  By submitting you consent to sharing this information with the relevant civic department for resolution.
+                </div>
+              </div>
+
+              <div style="display:flex;justify-content:space-between">
+                <button type="button" class="btn btn-ghost" onclick="goStep(2)">← Edit</button>
+                <button type="submit" class="btn btn-primary" id="submitBtn">
+                  <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
+                  Submit Complaint
+                </button>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Right: tips -->
+          <div>
+            <div class="tip-card">
+              <h4>💡 Tips for a faster resolution</h4>
+              <ul>
+                <li>Be specific about the location</li>
+                <li>Mention when the issue started</li>
+                <li>Add photos if possible</li>
+                <li>Choose the right category</li>
+                <li>Mark correct priority level</li>
+              </ul>
+            </div>
+
+            <div class="card" style="padding:18px;margin-bottom:16px">
+              <div class="card-title text-sm mb-2">Average Resolution Times</div>
+              <div class="bar-chart-horiz">
+                <div class="bar-row"><div class="bar-label">Critical</div><div class="bar-track"><div class="bar-fill" style="--bar-color:#e65c2e;width:15%"></div></div><div class="bar-val" style="font-size:.72rem">24h</div></div>
+                <div class="bar-row"><div class="bar-label">High</div><div class="bar-track"><div class="bar-fill" style="--bar-color:#d4a017;width:40%"></div></div><div class="bar-val" style="font-size:.72rem">3 d</div></div>
+                <div class="bar-row"><div class="bar-label">Medium</div><div class="bar-track"><div class="bar-fill" style="--bar-color:#2d8653;width:65%"></div></div><div class="bar-val" style="font-size:.72rem">5 d</div></div>
+                <div class="bar-row"><div class="bar-label">Low</div><div class="bar-track"><div class="bar-fill" style="--bar-color:#adb5bd;width:100%"></div></div><div class="bar-val" style="font-size:.72rem">14 d</div></div>
+              </div>
+            </div>
+
+            <div class="card" style="padding:18px">
+              <div class="card-title text-sm mb-2">This Month's Stats</div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;text-align:center">
+                <div style="background:var(--green-50);border-radius:10px;padding:12px">
+                  <div style="font-size:1.4rem;font-weight:800;color:var(--green-700)">63</div>
+                  <div class="text-xs text-muted">Filed</div>
+                </div>
+                <div style="background:var(--green-50);border-radius:10px;padding:12px">
+                  <div style="font-size:1.4rem;font-weight:800;color:var(--green-700)">78%</div>
+                  <div class="text-xs text-muted">Satisfaction</div>
+                </div>
+                <div style="background:var(--green-50);border-radius:10px;padding:12px">
+                  <div style="font-size:1.4rem;font-weight:800;color:var(--green-700)">4.7d</div>
+                  <div class="text-xs text-muted">Avg. Resolution</div>
+                </div>
+                <div style="background:var(--green-50);border-radius:10px;padding:12px">
+                  <div style="font-size:1.4rem;font-weight:800;color:var(--green-700)">102</div>
+                  <div class="text-xs text-muted">Resolved</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </form>
+    </main>
+  </div>
+</div>
+
+<!-- Success overlay -->
+<div class="success-overlay" id="successOverlay">
+  <div class="success-card">
+    <div class="success-icon">
+      <svg width="36" height="36" fill="none" viewBox="0 0 24 24" stroke="#2d8653" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+    </div>
+    <h2 style="font-size:1.25rem;font-weight:800;color:var(--gray-900);margin-bottom:8px">Complaint Registered!</h2>
+    <p style="font-size:.875rem;color:var(--gray-500);margin-bottom:0">Your ticket number is:</p>
+    <div class="ticket-box" id="ticketNum">CP-2024-0892</div>
+    <p style="font-size:.83rem;color:var(--gray-500);margin-bottom:24px">You'll receive updates via SMS & email. The relevant department will be notified immediately.</p>
+    <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+      <button class="btn btn-ghost btn-sm" onclick="navigator.clipboard.writeText(document.getElementById('ticketNum').textContent); CP.toast('ID copied to clipboard!', 'success')">
+        <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+        Copy ID
+      </button>
+      <a class="btn btn-primary btn-sm" href="track.html">Track Status</a>
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+<script>
+(function() {
+  CP.initSidebar();
+
+  // Populate wards
+  const wards = ['Ward 1','Ward 2','Ward 3','Ward 4','Ward 5','Ward 6','Ward 7','Ward 8','Ward 9','Ward 10','Ward 11','Ward 12','Ward 13','Ward 14','Ward 15','Ward 16','Ward 17','Ward 18'];
+  const wardSel = document.getElementById('ward');
+  wards.forEach(w => { const o=document.createElement('option'); o.textContent=w; wardSel.appendChild(o); });
+
+  // Char counters
+  const titleInput = document.getElementById('complaintTitle');
+  titleInput.addEventListener('input', () => {
+    document.getElementById('titleCount').textContent = `${titleInput.value.length} / 120`;
+  });
+  const descInput = document.getElementById('description');
+  descInput.addEventListener('input', () => {
+    document.getElementById('descCount').textContent = `${descInput.value.length} / 2000`;
+  });
+
+  // Step navigation
+  let currentStep = 1;
+  window.goStep = function(step) {
+    // Basic validation before advancing
+    if (step > currentStep) {
+      if (currentStep === 1) {
+        const req = ['reporterName','reporterPhone','complaintTitle','category','priority','ward','address'];
+        for (const id of req) {
+          const el = document.getElementById(id);
+          if (!el.value.trim()) { el.focus(); CP.toast('Please fill all required fields','error'); return; }
+        }
+      }
+      if (currentStep === 2) {
+        if (!document.getElementById('description').value.trim()) {
+          document.getElementById('description').focus();
+          CP.toast('Please describe the issue','error'); return;
+        }
+      }
+    }
+
+    if (step === 3) buildReview();
+
+    document.getElementById('formStep' + currentStep).classList.add('hidden');
+    document.getElementById('formStep' + step).classList.remove('hidden');
+    currentStep = step;
+    updateStepUI();
+  };
+
+  function updateStepUI() {
+    for (let i=1; i<=3; i++) {
+      const s = document.getElementById('step'+i);
+      s.className = 'step' + (i < currentStep ? ' done' : i === currentStep ? ' active' : '');
+    }
+    for (let i=1; i<=2; i++) {
+      const l = document.getElementById('line'+i);
+      l.className = 'step-line' + (i < currentStep ? ' done' : '');
+    }
+  }
+
+  function buildReview() {
+    const fields = [
+      ['Reporter',    document.getElementById('reporterName').value],
+      ['Phone',       document.getElementById('reporterPhone').value],
+      ['Email',       document.getElementById('reporterEmail').value || '—'],
+      ['Title',       document.getElementById('complaintTitle').value],
+      ['Category',    document.getElementById('category').value],
+      ['Priority',    document.getElementById('priority').value],
+      ['Ward',        document.getElementById('ward').value],
+      ['Address',     document.getElementById('address').value],
+      ['Description', document.getElementById('description').value],
+    ];
+    document.getElementById('reviewContent').innerHTML = fields.map(([k,v]) =>
+      `<div style="display:grid;grid-template-columns:120px 1fr;gap:4px;border-bottom:1px solid var(--gray-100);padding:6px 0">
+         <span class="text-muted text-xs" style="padding-top:2px">${k}</span>
+         <span style="font-weight:500;color:var(--gray-800)">${v}</span>
+       </div>`
+    ).join('');
+  }
+
+  // Submit
+  window.handleSubmit = function(e) {
+    e.preventDefault();
+    const btn = document.getElementById('submitBtn');
+    btn.disabled = true;
+    btn.textContent = 'Submitting…';
+    setTimeout(() => {
+      const num = 892 + Math.floor(Math.random()*1000);
+      const newId = `CP-2024-${num.toString().padStart(4, '0')}`;
+      
+      const newComplaint = {
+        id: newId,
+        title: document.getElementById('complaintTitle').value,
+        category: document.getElementById('category').value,
+        ward: document.getElementById('ward').value,
+        location: document.getElementById('address').value,
+        status: "open",
+        priority: document.getElementById('priority').value,
+        date: new Date().toISOString().split('T')[0],
+        reporter: document.getElementById('reporterName').value,
+        dept: "Pending Assignment",
+        description: document.getElementById('description').value
+      };
+      
+      CP.addComplaint(newComplaint);
+
+      document.getElementById('ticketNum').textContent = newId;
+      const overlay = document.getElementById('successOverlay');
+      overlay.classList.add('show');
+      const card = overlay.querySelector('.card');
+      if (card) {
+        card.classList.remove('submit-success');
+        void card.offsetWidth; // Trigger reflow to restart animation
+        card.classList.add('submit-success');
+      }
+      btn.disabled = false;
+      btn.textContent = 'Submit Complaint';
+    }, 1200);
+  };
+})();
+</script>
+</body>
+</html>

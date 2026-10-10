@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Blockchain Verification — Civic Proof</title>
+  <meta name="description" content="Verify the on-chain integrity of public grievances."/>
+  <link rel="stylesheet" href="style.css"/>
+  <style>
+    .verify-container { max-width: 900px; margin: 0 auto; padding-top: 40px; }
+    .search-box {
+      background: var(--white); border-radius: var(--radius-lg);
+      padding: 30px; box-shadow: var(--shadow-sm); border: 1px solid var(--gray-200);
+      margin-bottom: 24px;
+    }
+    .search-box h2 { font-size: 1.25rem; font-weight: 700; color: var(--gray-900); margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
+    .search-box p { color: var(--gray-500); font-size: 0.9rem; margin-bottom: 20px; }
+    
+    .search-input-group { display: flex; gap: 12px; }
+    @media(max-width: 500px) { .search-input-group { flex-direction: column; } .search-input-group button { padding: 12px; justify-content: center; } }
+    .search-input-group input { flex: 1; font-size: 1.1rem; padding: 12px 16px; border: 2px solid var(--gray-200); border-radius: var(--radius-md); outline: none; transition: 0.2s; font-family: monospace; }
+    .search-input-group input:focus { border-color: var(--teal-500); }
+    .search-input-group button { font-size: 1rem; padding: 0 24px; display: flex; align-items: center; gap: 8px; }
+    
+    .status-area { min-height: 200px; display: none; }
+    .status-area.active { display: block; }
+    
+    .state-msg { text-align: center; padding: 60px 20px; }
+    .state-msg svg { color: var(--gray-400); margin-bottom: 16px; }
+    .state-msg h3 { font-size: 1.1rem; font-weight: 600; color: var(--gray-800); margin-bottom: 8px; }
+    .state-msg p { color: var(--gray-500); font-size: 0.9rem; }
+    
+    .loading-spinner {
+      width: 40px; height: 40px; border: 3px solid var(--gray-200);
+      border-top-color: var(--green-500); border-radius: 50%;
+      animation: spin 1s linear infinite; margin: 0 auto 16px;
+    }
+    @keyframes spin { 100% { transform: rotate(360deg); } }
+
+    .result-grid { display: grid; grid-template-columns: 1fr 340px; gap: 24px; align-items: start; }
+    @media (max-width: 800px) { .result-grid { grid-template-columns: 1fr; } }
+
+    .card { background: var(--white); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); border: 1px solid var(--gray-200); overflow: hidden; }
+    
+    .card-header-alt { padding: 20px 24px; border-bottom: 1px solid var(--gray-100); background: var(--gray-50); }
+    .card-title-alt { font-size: 1.1rem; font-weight: 700; color: var(--gray-900); }
+    
+    .data-list { padding: 0; margin: 0; list-style: none; }
+    .data-list li { padding: 16px 24px; border-bottom: 1px solid var(--gray-100); display: flex; flex-direction: column; gap: 4px; }
+    .data-list li:last-child { border-bottom: none; }
+    .data-label { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: var(--gray-500); letter-spacing: 0.05em; }
+    .data-val { font-size: 0.9rem; color: var(--gray-800); font-weight: 500; }
+    
+    .verification-box { padding: 24px; }
+    .status-badge { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 6px; font-size: 0.85rem; font-weight: 700; margin-bottom: 16px; }
+    .status-badge.unverified { background: #fff5f5; color: #e03131; border: 1px solid #ffc9c9; }
+    
+    .alert-box { background: var(--gray-50); border-left: 4px solid var(--gray-400); padding: 16px; border-radius: 0 var(--radius-md) var(--radius-md) 0; font-size: 0.85rem; color: var(--gray-700); line-height: 1.5; margin-bottom: 20px; }
+    .alert-box.warning { background: #fff9db; border-left-color: #fcc419; color: #865503; }
+  </style>
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <a class="sidebar-brand" href="index.html">
+      <img src="logo.jpg" alt="Civic Proof logo"/>
+      <div class="sidebar-brand-text">
+        <span class="brand-name">Civic Proof</span>
+        <span class="brand-tagline">Public Grievance Portal</span>
+      </div>
+    </a>
+      <button class="sidebar-toggle-btn" id="sidebarToggle">
+        <svg id="sidebarToggleIcon" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-section-label">Overview</div>
+      <a class="nav-item" href="index.html"><svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg><span>Dashboard</span></a>
+      <a class="nav-item" href="analytics.html"><svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>Analytics</span></a>
+      <div class="nav-section-label">Complaints</div>
+      <a class="nav-item" href="complaints.html"><svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg><span>All Complaints</span></a>
+      <a class="nav-item" href="submit.html"><svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg><span>Submit Complaint</span></a>
+      <a class="nav-item" href="track.html"><svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><span>Track Complaint</span></a>
+      <a class="nav-item active" href="verify.html"><svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg><span>Verify Integrity</span></a>
+      <div class="nav-section-label">Administration</div>
+      <a class="nav-item" href="admin.html"><svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg><span>Admin Console</span></a>
+      <a class="nav-item" href="settings.html"><svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg><span>Settings</span></a>
+    </nav>
+    </aside>
+
+  <div class="main-content" id="mainContent">
+    <header class="topbar">
+      <div class="topbar-left">
+        <div class="topbar-title">Blockchain Integrity Verification</div>
+        <div class="topbar-subtitle">Audit complaint records against the decentralized ledger</div>
+      </div>
+      <div class="topbar-actions">
+
+            </div>
+    </header>
+
+    <main class="page-content">
+      <div class="verify-container">
+        
+        <div class="search-box fade-in-up">
+          <h2>
+            <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="color:var(--green-600)"><path d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+            Cryptographic Audit
+          </h2>
+          <p>Enter the Complaint ID to query the connected smart contract and verify data authenticity.</p>
+          <form class="search-input-group" onsubmit="handleVerify(event)">
+            <input type="text" id="verifyInput" placeholder="e.g. CP-2024-0891" required autocomplete="off"/>
+            <button type="submit" class="btn btn-primary" id="verifyBtn">
+              <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+              Verify Record
+            </button>
+          </form>
+        </div>
+
+        <div id="state-initial" class="status-area active fade-in-up" style="animation-delay:0.1s">
+          <div class="state-msg">
+            <svg width="48" height="48" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+            <h3>Ready for verification</h3>
+            <p>The system will cross-reference local database records with the blockchain ledger.</p>
+          </div>
+        </div>
+
+        <div id="state-loading" class="status-area">
+          <div class="state-msg">
+            <div class="loading-spinner"></div>
+            <h3>Connecting to Blockchain Network...</h3>
+            <p>Querying the smart contract. This may take a moment depending on network latency.</p>
+          </div>
+        </div>
+
+        <div id="state-notfound" class="status-area">
+          <div class="state-msg">
+            <svg width="48" height="48" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+            <h3>Local Record Not Found</h3>
+            <p>This complaint ID does not exist in the local system, so it cannot be audited.</p>
+          </div>
+        </div>
+
+        <div id="state-result" class="status-area">
+          <div class="result-grid fade-in-up">
+            
+            <!-- Local Data Card -->
+            <div class="card">
+              <div class="card-header-alt">
+                <div class="card-title-alt">Local Complaint Record</div>
+              </div>
+              <ul class="data-list">
+                <li>
+                  <span class="data-label">Reference ID</span>
+                  <span class="data-val" id="resId">--</span>
+                </li>
+                <li>
+                  <span class="data-label">Title</span>
+                  <span class="data-val" id="resTitle">--</span>
+                </li>
+                <li>
+                  <span class="data-label">Category / Department</span>
+                  <span class="data-val"><span id="resCat">--</span> &bull; <span id="resDept">--</span></span>
+                </li>
+                <li>
+                  <span class="data-label">Location</span>
+                  <span class="data-val" id="resLoc">--</span>
+                </li>
+                <li>
+                  <span class="data-label">Current Status</span>
+                  <span class="data-val" id="resStatus">--</span>
+                </li>
+                <li>
+                  <span class="data-label">Status History Log</span>
+                  <div id="resHistory" style="margin-top:6px; font-size:0.8rem; color:var(--gray-600); display:flex; flex-direction:column; gap:4px">
+                    <!-- populated by js -->
+                  </div>
+                </li>
+              </ul>
+            </div>
+
+            <!-- Verification Card -->
+            <div class="card">
+              <div class="card-header-alt">
+                <div class="card-title-alt">On-Chain Verification</div>
+              </div>
+              <div class="verification-box">
+                <div class="status-badge unverified" id="badgeStatus">
+                  <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                  UNVERIFIED (DEMO MODE)
+                </div>
+                
+                <div class="alert-box warning" id="alertMsg">
+                  <strong>Network Disconnected</strong><br/>
+                  The blockchain service is currently in demo state. No live Web3 provider or active smart contract connection was detected.
+                </div>
+                
+                <div style="font-size:0.8rem; color:var(--gray-500); line-height:1.6; border-top:1px solid var(--gray-200); padding-top:16px">
+                  <div style="margin-bottom:8px"><strong>Transaction Hash:</strong><br/><span style="font-family:monospace; color:var(--gray-400)">N/A - Not Connected</span></div>
+                  <div style="margin-bottom:8px"><strong>Block Number:</strong><br/><span style="font-family:monospace; color:var(--gray-400)">N/A - Not Connected</span></div>
+                  <div><strong>Contract Address:</strong><br/><span style="font-family:monospace; color:var(--gray-400)">N/A - Not Connected</span></div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+    </main>
+  </div>
+</div>
+
+<script src="app.js"></script>
+<script src="blockchain.js"></script>
+<script>
+(function() {
+  CP.initSidebar();
+
+  window.handleVerify = async function(e) {
+    e.preventDefault();
+    const id = document.getElementById('verifyInput').value.trim();
+    if (!id) return;
+
+    // UI Reset
+    document.querySelectorAll('.status-area').forEach(el => el.classList.remove('active'));
+    document.getElementById('state-loading').classList.add('active');
+    const btn = document.getElementById('verifyBtn');
+    btn.disabled = true;
+
+    // 1. Check local DB
+    const localComplaint = CP.COMPLAINTS.find(c => c.id.toLowerCase() === id.toLowerCase());
+    
+    if (!localComplaint) {
+      setTimeout(() => {
+        document.getElementById('state-loading').classList.remove('active');
+        document.getElementById('state-notfound').classList.add('active');
+        btn.disabled = false;
+      }, 500);
+      return;
+    }
+
+    // 2. Query BlockchainService
+    const result = await window.BlockchainService.verifyComplaint(id, localComplaint);
+    
+    document.getElementById('state-loading').classList.remove('active');
+    btn.disabled = false;
+
+    // Populate local data
+    document.getElementById('resId').textContent = localComplaint.id;
+    document.getElementById('resTitle').textContent = localComplaint.title;
+    document.getElementById('resCat').textContent = localComplaint.category;
+    document.getElementById('resDept').textContent = localComplaint.dept;
+    document.getElementById('resLoc').textContent = `${localComplaint.location} (${localComplaint.ward})`;
+    document.getElementById('resStatus').innerHTML = CP.statusPill(localComplaint.status);
+    
+    // History
+    let history = localComplaint.history || [];
+    if (history.length === 0) {
+      history = [{ status: localComplaint.status, timestamp: new Date(localComplaint.date).toISOString() }];
+    }
+    document.getElementById('resHistory').innerHTML = history.map(h => {
+      const labels = { open: 'Submitted', acknowledged: 'Acknowledged', progress: 'In Progress', resolved: 'Resolved', closed: 'Closed' };
+      const statusStr = labels[h.status] || h.status;
+      return `<div><strong style="color:var(--gray-800)">${statusStr}</strong> &bull; <span>${new Date(h.timestamp).toLocaleString()}</span></div>`;
+    }).join('');
+
+    // Handle Blockchain result
+    // Per requirements: Display clearly labeled demo state, no fake hashes
+    if (result.status === "DEMO_UNCONNECTED") {
+      document.getElementById('badgeStatus').className = 'status-badge unverified';
+      document.getElementById('badgeStatus').innerHTML = `
+        <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+        UNVERIFIED (DEMO MODE)
+      `;
+      document.getElementById('alertMsg').innerHTML = `
+        <strong>Verification Unavailable</strong><br/>
+        ${result.message}
+      `;
+    }
+
+    document.getElementById('state-result').classList.add('active');
+  };
+
+})();
+</script>
+</body>
+</html>
